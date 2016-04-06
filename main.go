@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/codegangsta/cli"
 	"github.com/dailyburn/ratchet"
 	"github.com/dailyburn/ratchet/logger"
 	"github.com/dailyburn/ratchet/processors"
@@ -13,24 +14,55 @@ import (
 	procs "github.com/samuelhug/ratchet_processors"
 )
 
+const CMDNAME = "etlcmd"
+
 func main() {
 
-	logger.LogLevel = logger.LevelError
+	var configPath string
 
-	config, err := LoadConfig("etlcmd.conf")
-	if err != nil {
-		log.Fatalf("Unable to load configuration: %s\n", err)
+	app := cli.NewApp()
+	app.Name = CMDNAME
+	app.Usage = "A utility to assist with the automation of ETL tasks."
+	app.Author = "Sam Hug"
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:        "config, c",
+			Value:       fmt.Sprintf("./%s.conf", CMDNAME),
+			Usage:       "Path to configuration file",
+			Destination: &configPath,
+		},
 	}
+	app.Action = func(c *cli.Context) {
+		config, err := LoadConfig(configPath)
+		if err != nil {
+			log.Fatalf("Unable to load configuration: %s\n", err)
+		}
+
+		runApp(config)
+	}
+
+	app.Run(os.Args)
+}
+
+func runApp(config *Config) {
+
+	logger.LogLevel = logger.LevelError
 
 	// Initialize ETL's
 	for _, processInfo := range config.Processes {
 
+		log.Printf("Initializing %s ETL", processInfo.Name)
+
 		var processorChain []ratchet.DataProcessor
+		var err error
 
 		// Initialize Input
 		var input ratchet.DataProcessor
 		inputType := strings.ToLower(processInfo.Input.Type)
 		inputConfig := processInfo.Input.Config
+
+		log.Printf("Initializing %s input", inputType)
+
 		switch inputType {
 		default:
 			log.Fatalf("Unsupported input type (%s)\n", inputType)
@@ -91,15 +123,15 @@ func main() {
 			var transform ratchet.DataProcessor
 			transformType := strings.ToLower(transformInfo.Type)
 			transformConfig := transformInfo.Config
+
+			log.Printf("Initializing %s transform", transformType)
+
 			switch transformType {
 			default:
 				log.Fatalf("Unsupported transform type (%s)\n", transformType)
 			case "js":
 				script := transformConfig["script"].(string)
 				transform = procs.NewJsTransform(script)
-				//if err != nil {
-				//	log.Fatalf("Error initializing transform: %s\n", err)
-				//}
 			}
 			processorChain = append(processorChain, transform)
 		}
@@ -108,6 +140,9 @@ func main() {
 		var output ratchet.DataProcessor
 		outputType := strings.ToLower(processInfo.Output.Type)
 		outputConfig := processInfo.Output.Config
+
+		log.Printf("Initializing %s output", outputType)
+
 		switch outputType {
 		default:
 			log.Fatalf("Unsupported output type (%s)\n", outputType)
@@ -143,12 +178,16 @@ func main() {
 		}
 		processorChain = append(processorChain, output)
 
+		log.Printf("Initializing data pipeline")
 		pipeline := ratchet.NewPipeline(processorChain...)
 
-		err = <-pipeline.Run()
+		log.Printf("Processesing...")
 
+		err = <-pipeline.Run()
 		if err != nil {
-			fmt.Println("An error occurred in the ratchet pipeline:", err.Error())
+			fmt.Println("An error occurred in the ratchet pipeline: ", err.Error())
 		}
+
+		log.Printf("Done...")
 	}
 }
