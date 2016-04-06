@@ -218,10 +218,10 @@ func parseProcesses(result *Config, list *ast.ObjectList) error {
 		process.Name = n
 
 		// Parse input
-		if o := listVal.Filter("input"); len(o.Items) > 0 {
-			if err := parseInputs(&process, o); err != nil {
-				return fmt.Errorf("error parsing 'input': %s", err)
-			}
+		if o := listVal.Filter("input"); len(o.Items) == 0 {
+			return fmt.Errorf("you must specify an 'input' block for process '%s'", process.Name)
+		} else if err := parseInputs(&process, o); err != nil {
+			return fmt.Errorf("error parsing 'input': %s", err)
 		}
 
 		// Parse transforms
@@ -232,10 +232,10 @@ func parseProcesses(result *Config, list *ast.ObjectList) error {
 		}
 
 		// Parse outputs
-		if o := listVal.Filter("output"); len(o.Items) > 0 {
-			if err := parseOutputs(&process, o); err != nil {
-				return fmt.Errorf("error parsing 'output': %s", err)
-			}
+		if o := listVal.Filter("output"); len(o.Items) == 0 {
+			return fmt.Errorf("you must specify an 'output' block for process '%s'", process.Name)
+		} else if err := parseOutputs(&process, o); err != nil {
+			return fmt.Errorf("error parsing 'output': %s", err)
 		}
 
 		collection = append(collection, &process)
