@@ -131,7 +131,10 @@ func runApp(config *Config) {
 				log.Fatalf("Unsupported transform type (%s)\n", transformType)
 			case "js":
 				script := transformConfig["script"].(string)
-				transform = procs.NewJsTransform(script)
+				transform, err = procs.NewJsTransform(script)
+				if err != nil {
+					log.Fatalf("Error initializing JS transform: %s", err)
+				}
 			}
 			processorChain = append(processorChain, transform)
 		}
