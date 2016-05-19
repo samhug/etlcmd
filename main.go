@@ -15,6 +15,8 @@ import (
 )
 
 const CMDNAME = "etlcmd"
+const VERSION = "0.2.1"
+const AUTHOR = "Sam Hug"
 
 func main() {
 
@@ -23,35 +25,41 @@ func main() {
 	app := cli.NewApp()
 	app.Name = CMDNAME
 	app.Usage = "A utility to assist with the automation of ETL tasks."
-	app.Author = "Sam Hug"
+	app.Author = AUTHOR
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "config, c",
-			Value:       fmt.Sprintf("./%s.conf", CMDNAME),
 			Usage:       "Path to configuration file",
 			Destination: &configPath,
 		},
 	}
-	app.Action = func(c *cli.Context) {
+	app.Action = func(c *cli.Context) error {
+
+		fmt.Printf("%s v%s by %s\n\n", CMDNAME, VERSION, AUTHOR)
+
+		if configPath == "" {
+			log.Fatalf("You must specifiy a configuration file.\n")
+		}
+
 		config, err := LoadConfig(configPath)
 		if err != nil {
 			log.Fatalf("Unable to load configuration: %s\n", err)
 		}
 
-		runApp(config)
+		return runApp(config)
 	}
 
 	app.Run(os.Args)
 }
 
-func runApp(config *Config) {
+func runApp(config *Config) error {
 
 	logger.LogLevel = logger.LevelError
 
 	// Initialize ETL's
 	for _, processInfo := range config.Processes {
 
-		log.Printf("Initializing %s ETL", processInfo.Name)
+		log.Printf("%s ETL Process", processInfo.Name)
 
 		var processorChain []ratchet.DataProcessor
 		var err error
@@ -61,7 +69,7 @@ func runApp(config *Config) {
 		inputType := strings.ToLower(processInfo.Input.Type)
 		inputConfig := processInfo.Input.Config
 
-		log.Printf("Initializing %s input", inputType)
+		log.Printf("  Initializing %s input", inputType)
 
 		switch inputType {
 		default:
@@ -95,23 +103,17 @@ func runApp(config *Config) {
 			c.Username = config.Unidata.Username
 			c.Password = config.Unidata.Password
 
-			query := inputConfig["query"].(string)
-			if query == "" {
-				log.Fatalf("You must specifiy a 'query' for input type 'udt'")
+			queryField, ok := inputConfig["query"]
+			if !ok {
+				log.Fatalf("You must specifiy a 'query' attribute for input type 'unidata'")
 			}
 
-			var recordSchema []*procs.UdtFieldInfo
-			for _, f := range processInfo.Input.Fields {
-
-				fieldInfo := &procs.UdtFieldInfo{
-					Name:    f.Name,
-					Type:    f.Type,
-					IsMulti: f.IsMulti,
-				}
-				recordSchema = append(recordSchema, fieldInfo)
+			query, ok := queryField.(string)
+			if !ok {
+				log.Fatalf("The 'query' attribute for input type 'unidata' must be a string")
 			}
 
-			input, err = procs.NewUdtReader(c, query, recordSchema)
+			input, err = procs.NewUdtReader(c, query)
 			if err != nil {
 				log.Fatalf("Error initializing input: %s\n", err)
 			}
@@ -124,7 +126,7 @@ func runApp(config *Config) {
 			transformType := strings.ToLower(transformInfo.Type)
 			transformConfig := transformInfo.Config
 
-			log.Printf("Initializing %s transform", transformType)
+			log.Printf("  Initializing %s transform", transformType)
 
 			switch transformType {
 			default:
@@ -144,7 +146,7 @@ func runApp(config *Config) {
 		outputType := strings.ToLower(processInfo.Output.Type)
 		outputConfig := processInfo.Output.Config
 
-		log.Printf("Initializing %s output", outputType)
+		log.Printf("  Initializing %s output", outputType)
 
 		switch outputType {
 		default:
@@ -181,16 +183,19 @@ func runApp(config *Config) {
 		}
 		processorChain = append(processorChain, output)
 
-		log.Printf("Initializing data pipeline")
+		log.Printf("  Initializing data pipeline")
 		pipeline := ratchet.NewPipeline(processorChain...)
 
-		log.Printf("Processesing...")
+		log.Printf("  Processesing...")
 
 		err = <-pipeline.Run()
 		if err != nil {
-			fmt.Println("An error occurred in the ratchet pipeline: ", err.Error())
+			fmt.Println("An error occurred in the data pipeline: ", err.Error())
 		}
 
-		log.Printf("Done...")
+		log.Printf(" Done...")
+
 	}
+
+	return nil
 }

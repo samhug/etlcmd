@@ -12,16 +12,9 @@ import (
 	"strings"
 )
 
-type FieldInfo struct {
-	Name    string
-	Type    string
-	IsMulti bool
-}
-
 type InputInfo struct {
 	Type   string
 	Config map[string]interface{}
-	Fields []*FieldInfo
 }
 
 type OutputInfo struct {
@@ -208,12 +201,6 @@ func parseProcesses(result *Config, list *ast.ObjectList) error {
 		}
 
 		var process ProcessInfo
-		/*
-			if err := mapstructure.WeakDecode(m, &process); err != nil {
-				return fmt.Errorf(
-					"error parsing process '%s': %s", n, err)
-			}
-		*/
 
 		process.Name = n
 
@@ -260,13 +247,6 @@ func parseInputs(result *ProcessInfo, list *ast.ObjectList) error {
 	}
 	key := item.Keys[0].Token.Value().(string)
 
-	var listVal *ast.ObjectList
-	if ot, ok := item.Val.(*ast.ObjectType); ok {
-		listVal = ot.List
-	} else {
-		return fmt.Errorf("process '%s': should be an object", key)
-	}
-
 	var m map[string]interface{}
 	if err := hcl.DecodeObject(&m, item.Val); err != nil {
 		return err
@@ -276,70 +256,8 @@ func parseInputs(result *ProcessInfo, list *ast.ObjectList) error {
 	input.Type = strings.ToLower(key)
 	input.Config = m
 
-	// Parse fields
-	if o := listVal.Filter("field"); len(o.Items) > 0 {
-		if err := parseFields(&input, o); err != nil {
-			return fmt.Errorf("error parsing 'field': %s", err)
-		}
-	}
-
 	result.Input = &input
 
-	return nil
-}
-
-func parseFields(result *InputInfo, list *ast.ObjectList) error {
-
-	// Go through each object and turn it into an actual result.
-	collection := make([]*FieldInfo, 0, len(list.Items))
-	seen := make(map[string]struct{})
-	for _, item := range list.Items {
-		n := item.Keys[0].Token.Value().(string)
-
-		// Make sure we haven't already found this
-		if _, ok := seen[n]; ok {
-			return fmt.Errorf("field '%s' defined more than once", n)
-		}
-		seen[n] = struct{}{}
-
-		// Check for invalid keys
-		valid := []string{"type", "is_multi"}
-		if err := checkHCLKeys(item.Val, valid); err != nil {
-			return multierror.Prefix(err, fmt.Sprintf(
-				"field '%s':", n))
-		}
-
-		var m map[string]interface{}
-		if err := hcl.DecodeObject(&m, item.Val); err != nil {
-			return err
-		}
-
-		var field FieldInfo
-		if err := mapstructure.WeakDecode(m, &field); err != nil {
-			return fmt.Errorf(
-				"error parsing field '%s': %s", n, err)
-		}
-
-		field.Name = n
-
-		if val, ok := m["type"]; ok {
-			field.Type = val.(string)
-		} else {
-			return fmt.Errorf(
-				"you must specify a type for field '%s'", field.Name)
-		}
-
-		if val, ok := m["is_multi"]; ok {
-			field.IsMulti = val.(bool)
-		} else {
-			field.IsMulti = false
-		}
-
-		collection = append(collection, &field)
-	}
-
-	// Set the results
-	result.Fields = collection
 	return nil
 }
 
