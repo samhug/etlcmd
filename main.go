@@ -35,7 +35,7 @@ func main() {
 	}
 	app.Action = func(c *cli.Context) error {
 
-		fmt.Printf("%s v%s by %s\n\n", CMDNAME, VERSION, AUTHOR)
+		fmt.Fprintf(os.Stderr, "%s v%s by %s\n\n", CMDNAME, VERSION, AUTHOR)
 
 		if configPath == "" {
 			log.Fatalf("You must specifiy a configuration file.\n")
