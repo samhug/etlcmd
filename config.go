@@ -12,19 +12,21 @@ import (
 	"strings"
 )
 
+type ConfigMap map[string]interface{}
+
 type InputInfo struct {
 	Type   string
-	Config map[string]interface{}
+	Config ConfigMap
 }
 
 type OutputInfo struct {
 	Type   string
-	Config map[string]interface{}
+	Config ConfigMap
 }
 
 type TransformInfo struct {
 	Type   string
-	Config map[string]interface{}
+	Config ConfigMap
 }
 
 type ProcessInfo struct {

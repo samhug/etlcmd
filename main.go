@@ -52,6 +52,36 @@ func main() {
 	app.Run(os.Args)
 }
 
+// Get handle to input file defined by path attribute, if defined, or stdin
+func inputFile(config ConfigMap) (f *os.File) {
+	if config["path"] != nil {
+		var err error
+		path := config["path"].(string)
+		f, err = os.Open(path)
+		if err != nil {
+			log.Fatalf("Unable to open input file (%s): %s", path, err)
+		}
+	} else {
+		f = os.Stdin
+	}
+	return
+}
+
+// Get handle to output file defined by path attribute, if defined, or stdout
+func outputFile(config ConfigMap) (f *os.File) {
+	if config["path"] != nil {
+		var err error
+		path := config["path"].(string)
+		f, err = os.Create(path)
+		if err != nil {
+			log.Fatalf("Unable to create output file (%s): %s", path, err)
+		}
+	} else {
+		f = os.Stdout
+	}
+	return
+}
+
 func runApp(config *Config) error {
 
 	logger.LogLevel = logger.LevelError
@@ -75,11 +105,7 @@ func runApp(config *Config) error {
 		default:
 			log.Fatalf("Unsupported input type (%s)\n", inputType)
 		case "csv":
-			path := inputConfig["path"].(string)
-			f, err := os.Open(path)
-			if err != nil {
-				log.Fatalf("Unable to open input file (%s): %s", path, err)
-			}
+			f := inputFile(inputConfig)
 			defer f.Close()
 
 			input, err = procs.NewCSVReader(f)
@@ -87,11 +113,7 @@ func runApp(config *Config) error {
 				log.Fatalf("Error initializing input: %s\n", err)
 			}
 		case "json":
-			path := inputConfig["path"].(string)
-			f, err := os.Open(path)
-			if err != nil {
-				log.Fatalf("Unable to open input file (%s): %s", path, err)
-			}
+			f := inputFile(inputConfig)
 			defer f.Close()
 
 			input = procs.NewJSONReader(f)
@@ -152,24 +174,13 @@ func runApp(config *Config) error {
 		default:
 			log.Fatalf("Unsupported output type (%s)\n", outputType)
 		case "csv":
-			path := outputConfig["path"].(string)
-			f, err := os.Create(path)
-			if err != nil {
-				log.Fatalf("Unable to create output file (%s): %s", path, err)
-			}
+			f := outputFile(outputConfig)
 			defer f.Close()
-
 			output = processors.NewCSVWriter(f)
 		case "json":
-			path := outputConfig["path"].(string)
-			f, err := os.Create(path)
-			if err != nil {
-				log.Fatalf("Unable to create output file (%s): %s", path, err)
-			}
+			f := outputFile(outputConfig)
 			defer f.Close()
-
 			output = procs.NewJSONWriter(f)
-
 		case "mongodb":
 			mgoConfig := &procs.MgoConfig{
 				Server:     config.MongoDB.Server,
