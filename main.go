@@ -202,6 +202,7 @@ func runApp(config *Config) error {
 		err = <-pipeline.Run()
 		if err != nil {
 			fmt.Println("An error occurred in the data pipeline: ", err.Error())
+			os.Exit(1)
 		}
 
 		log.Printf(" Done...")
