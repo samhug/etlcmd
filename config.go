@@ -3,32 +3,37 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
+	"strings"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
 	"github.com/mitchellh/mapstructure"
-	"io"
-	"os"
-	"strings"
 )
 
-type ConfigMap map[string]interface{}
+type configMap map[string]interface{}
 
+// InputInfo represents the input specification for an ETL process
 type InputInfo struct {
 	Type   string
-	Config ConfigMap
+	Config configMap
 }
 
+// OutputInfo represents the output specification for an ETL process
 type OutputInfo struct {
 	Type   string
-	Config ConfigMap
+	Config configMap
 }
 
+// TransformInfo represents the transform specification for an ETL process
 type TransformInfo struct {
 	Type   string
-	Config ConfigMap
+	Config configMap
 }
 
+// ProcessInfo represents the specification for an ETL process
 type ProcessInfo struct {
 	Name       string `hcl:",key"`
 	Input      *InputInfo
@@ -41,6 +46,7 @@ type UnidataInfo struct {
 	Username string
 	Password string
 	UdtBin   string `hcl:"udt_bin,"`
+	UdtHome  string `hcl:"udt_home,"`
 }
 
 type MongoDBInfo struct {
@@ -48,12 +54,14 @@ type MongoDBInfo struct {
 	Database string
 }
 
+// Config is the root configuration object that contains all ETL process specifications
 type Config struct {
 	Processes []*ProcessInfo `hcl:"process,"`
 	Unidata   *UnidataInfo
 	MongoDB   *MongoDBInfo
 }
 
+// Parse consumes a Reader and returns a Config object
 func Parse(r io.Reader) (*Config, error) {
 
 	// Copy the reader into an in-memory buffer first since HCL requires it.
@@ -124,7 +132,7 @@ func parseUnidata(result *Config, list *ast.ObjectList) error {
 	item := list.Items[0]
 
 	// Check for invalid keys
-	valid := []string{"host", "username", "password", "udt_bin"}
+	valid := []string{"host", "username", "password", "udtbin", "udthome"}
 	if err := checkHCLKeys(item.Val, valid); err != nil {
 		return multierror.Prefix(err, "unidata:")
 	}
@@ -319,6 +327,7 @@ func parseOutputs(result *ProcessInfo, list *ast.ObjectList) error {
 	return nil
 }
 
+// LoadConfig loads configuration info from a file
 func LoadConfig(path string) (*Config, error) {
 
 	file, err := os.Open(path)

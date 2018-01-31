@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -10,12 +11,13 @@ import (
 	"github.com/dailyburn/ratchet"
 	"github.com/dailyburn/ratchet/logger"
 	"github.com/dailyburn/ratchet/processors"
+	"github.com/dailyburn/ratchet/util"
 
 	procs "github.com/samuelhug/ratchet_processors"
 )
 
 const CMDNAME = "etlcmd"
-const VERSION = "0.2.1"
+const VERSION = "0.2.2"
 const AUTHOR = "Sam Hug"
 
 func main() {
@@ -53,7 +55,7 @@ func main() {
 }
 
 // Get handle to input file defined by path attribute, if defined, or stdin
-func inputFile(config ConfigMap) (f *os.File) {
+func inputFile(config configMap) (f *os.File) {
 	if config["path"] != nil {
 		var err error
 		path := config["path"].(string)
@@ -68,7 +70,7 @@ func inputFile(config ConfigMap) (f *os.File) {
 }
 
 // Get handle to output file defined by path attribute, if defined, or stdout
-func outputFile(config ConfigMap) (f *os.File) {
+func outputFile(config configMap) (f *os.File) {
 	if config["path"] != nil {
 		var err error
 		path := config["path"].(string)
@@ -124,6 +126,15 @@ func runApp(config *Config) error {
 			c.Address = config.Unidata.Host
 			c.Username = config.Unidata.Username
 			c.Password = config.Unidata.Password
+			c.UdtBin = config.Unidata.UdtBin
+			c.UdtHome = config.Unidata.UdtHome
+
+			if c.UdtBin == "" {
+				log.Fatalf("The 'udtbin' attribute for input type 'unidata' must not be empty")
+			}
+			if c.UdtHome == "" {
+				log.Fatalf("The 'udthome' attribute for input type 'unidata' must not be empty")
+			}
 
 			queryField, ok := inputConfig["query"]
 			if !ok {
@@ -176,7 +187,23 @@ func runApp(config *Config) error {
 		case "csv":
 			f := outputFile(outputConfig)
 			defer f.Close()
-			output = processors.NewCSVWriter(f)
+
+			var columnOrder []string
+			if outputConfig["column_order"] != nil {
+				v, ok := outputConfig["column_order"].([]interface{})
+				if !ok {
+					log.Fatal("Field 'column_order' for csv output must be and array of strings")
+				}
+				for i, c := range v {
+					h, ok := c.(string)
+					if !ok {
+						log.Fatalf("Field 'column_order' for csv output: item %d must be a string", i)
+					}
+					columnOrder = append(columnOrder, h)
+				}
+			}
+
+			output = newCSVWriter(f, columnOrder)
 		case "json":
 			f := outputFile(outputConfig)
 			defer f.Close()
@@ -210,4 +237,22 @@ func runApp(config *Config) error {
 	}
 
 	return nil
+}
+
+func newCSVWriter(w io.Writer, columnOrder []string) *processors.CSVWriter {
+	writer := &util.CSVWriter{
+		Comma:             ',',
+		UseCRLF:           false,
+		AlwaysEncapsulate: true,
+		QuoteEscape:       `"`,
+	}
+	writer.SetWriter(w)
+
+	return &processors.CSVWriter{
+		Parameters: util.CSVParameters{
+			Writer:      writer,
+			WriteHeader: true,
+			Header:      columnOrder,
+		},
+	}
 }
