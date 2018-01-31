@@ -1,0 +1,25 @@
+language: go
+go: 1.9
+install: 
+before_deploy:
+- GOOS=linux   GOARCH=amd64 go build -o etlcmd_linux_amd64
+- GOOS=linux   GOARCH=386   go build -o etlcmd_linux_386
+- GOOS=linux   GOARCH=arm   go build -o etlcmd_linux_arm
+- GOOS=darwin  GOARCH=amd64 go build -o etlcmd_darwin_amd64
+- GOOS=windows GOARCH=amd64 go build -o etlcmd_windows_amd64.exe
+- GOOS=windows GOARCH=386   go build -o etlcmd_windows_386.exe
+deploy:
+  skip_cleanup: true
+  provider: releases
+  api_key:
+    secure: SJFruQEdc3edvFppiHM6stA7KBx/8D+WCma3wMZMr7vNYAixjm9jSpMm+F6G1gHU6MIXz0algUcoM/bxRc9CsFC2QriI6Hf3bsYoOAdk0g2lC3J+R7wxuPfkKwh3dhI5YTZtPYU6oQFj8bdk4ncD6idDmIsR67P/v70peK7gepRHBJwRefZ+GWatWm+pBLZ5flYwfjmqoLARwDqI2Y1O0FrfXrIFjT2ALzNPNYPoKrSBVzQwrUKMgBoYkDGEWBEXVWSNFpWA1WXOlbStksfOtvuqx66gyHvrGaQIuC2h4EafuY1skrVVdJCO9uFuxyiHvrQkoKEtaWhIM3DeN8KNb476n7ZBsWcfaXzmsUj7hwZNG0JhBUsyX3IbOuAk4jXi53KQoGPGe5s3GsogJOUQt6hJhPmgMVpfnPQTB1f/JZc0DHuzfSFCh+pbPnPeww+HDv53I0UxFi0dvSPp7d+g7BDYLKYoMDDCM3t9e+z8AEjYbDGgD9Wu6Eix3AEqn7lCtTRh80V1Qrz10upHEYgGT1pkcVD7HPX5q9eTAxfaL7neBcGbsd6S6JqYxVk56XsQwAFcmEr+y5FlaYdSQlDg9o1k4dcG8xt9z2cGkov1fZt9hUHiJYm1HkY/wIK3jXnfurWNRpoFtydxt7HInxBBpi0q2bVowPC5H8PEDa7he8M=
+  file:
+  - etlcmd_linux_amd64
+  - etlcmd_linux_386
+  - etlcmd_linux_arm
+  - etlcmd_darwin_amd64
+  - etlcmd_windows_amd64.exe
+  - etlcmd_windows_386.exe
+  on:
+    tags: true
+    repo: samuelhug/etlcmd
