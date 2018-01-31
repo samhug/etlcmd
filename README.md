@@ -1,5 +1,6 @@
-etlcmd
-======
+# etlcmd
+
+[![Build Status](https://travis-ci.org/samuelhug/etlcmd.svg?branch=master)](https://travis-ci.org/samuelhug/etlcmd)
 
 A utility to assist with the automation of ETL tasks.
 
