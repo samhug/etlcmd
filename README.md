@@ -16,4 +16,4 @@ Currently has support for:
 | CSV File  | Read/Write |
 | JSON File | Read/Write |
 
-Uses modules from the [Ratchet](https://github.com/dailyburn/ratchet) library, as well as a number of custom ones (https://github.com/samuelhug/ratchet_processors)
+Uses modules from the [Ratchet](https://github.com/rhansen2/ratchet) library, as well as a number of custom ones (https://github.com/samuelhug/ratchet_processors)

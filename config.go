@@ -15,50 +15,45 @@ import (
 
 type configMap map[string]interface{}
 
-// InputInfo represents the input specification for an ETL process
-type InputInfo struct {
+// inputInfo represents the input specification for an ETL process
+type inputInfo struct {
 	Type   string
 	Config configMap
 }
 
-// OutputInfo represents the output specification for an ETL process
-type OutputInfo struct {
+// outputInfo represents the output specification for an ETL process
+type outputInfo struct {
 	Type   string
 	Config configMap
 }
 
-// TransformInfo represents the transform specification for an ETL process
-type TransformInfo struct {
+// transformInfo represents the transform specification for an ETL process
+type transformInfo struct {
 	Type   string
 	Config configMap
 }
 
-// ProcessInfo represents the specification for an ETL process
-type ProcessInfo struct {
+// processInfo represents the specification for an ETL process
+type processInfo struct {
 	Name       string `hcl:",key"`
-	Input      *InputInfo
-	Transforms []*TransformInfo
-	Output     *OutputInfo
+	Input      *inputInfo
+	Transforms []*transformInfo
+	Output     *outputInfo
 }
 
-type UnidataInfo struct {
+type unidataInfo struct {
 	Host     string
 	Username string
 	Password string
-	UdtBin   string `hcl:"udt_bin,"`
-	UdtHome  string `hcl:"udt_home,"`
-}
-
-type MongoDBInfo struct {
-	Server   string
-	Database string
+	UdtBin   string `hcl:"udtbin,"`
+	UdtHome  string `hcl:"udthome,"`
+	UdtAcct  string `hcl:"udtacct,"`
 }
 
 // Config is the root configuration object that contains all ETL process specifications
 type Config struct {
-	Processes []*ProcessInfo `hcl:"process,"`
-	Unidata   *UnidataInfo
-	MongoDB   *MongoDBInfo
+	Processes []*processInfo `hcl:"process,"`
+	Unidata   *unidataInfo
 }
 
 // Parse consumes a Reader and returns a Config object
@@ -87,7 +82,6 @@ func Parse(r io.Reader) (*Config, error) {
 	valid := []string{
 		"process",
 		"unidata",
-		"mongodb",
 	}
 	if err := checkHCLKeys(list, valid); err != nil {
 		return nil, err
@@ -111,14 +105,6 @@ func Parse(r io.Reader) (*Config, error) {
 		}
 	}
 
-	// Parse the mongodb config
-	if o := list.Filter("mongodb"); len(o.Items) > 0 {
-
-		if err := parseMongoDB(&result, o); err != nil {
-			return nil, fmt.Errorf("error parsing 'mongodb': %s", err)
-		}
-	}
-
 	return &result, nil
 }
 
@@ -132,7 +118,7 @@ func parseUnidata(result *Config, list *ast.ObjectList) error {
 	item := list.Items[0]
 
 	// Check for invalid keys
-	valid := []string{"host", "username", "password", "udtbin", "udthome"}
+	valid := []string{"host", "username", "password", "udtbin", "udthome", "udtacct"}
 	if err := checkHCLKeys(item.Val, valid); err != nil {
 		return multierror.Prefix(err, "unidata:")
 	}
@@ -142,34 +128,9 @@ func parseUnidata(result *Config, list *ast.ObjectList) error {
 		return err
 	}
 
-	u := UnidataInfo{}
+	u := unidataInfo{}
 	result.Unidata = &u
 	return mapstructure.WeakDecode(m, &u)
-}
-
-func parseMongoDB(result *Config, list *ast.ObjectList) error {
-
-	if len(list.Items) > 1 {
-		return fmt.Errorf("only one 'mongodb' block allowed")
-	}
-
-	// Get our one item
-	item := list.Items[0]
-
-	// Check for invalid keys
-	valid := []string{"server", "database"}
-	if err := checkHCLKeys(item.Val, valid); err != nil {
-		return multierror.Prefix(err, "mongodb:")
-	}
-
-	var m map[string]interface{}
-	if err := hcl.DecodeObject(&m, item.Val); err != nil {
-		return err
-	}
-
-	i := MongoDBInfo{}
-	result.MongoDB = &i
-	return mapstructure.WeakDecode(m, &i)
 }
 
 func parseProcesses(result *Config, list *ast.ObjectList) error {
@@ -180,10 +141,13 @@ func parseProcesses(result *Config, list *ast.ObjectList) error {
 	}
 
 	// Go through each object and turn it into an actual result.
-	collection := make([]*ProcessInfo, 0, len(list.Items))
+	collection := make([]*processInfo, 0, len(list.Items))
 	seen := make(map[string]struct{})
 	for _, item := range list.Items {
-		n := item.Keys[0].Token.Value().(string)
+		n, ok := item.Keys[0].Token.Value().(string)
+		if !ok {
+			return fmt.Errorf("process name must be a string, got %q", item.Keys[0].Token.Value())
+		}
 
 		// Make sure we haven't already found this
 		if _, ok := seen[n]; ok {
@@ -210,7 +174,7 @@ func parseProcesses(result *Config, list *ast.ObjectList) error {
 			return err
 		}
 
-		var process ProcessInfo
+		var process processInfo
 
 		process.Name = n
 
@@ -243,7 +207,7 @@ func parseProcesses(result *Config, list *ast.ObjectList) error {
 	return nil
 }
 
-func parseInputs(result *ProcessInfo, list *ast.ObjectList) error {
+func parseInputs(result *processInfo, list *ast.ObjectList) error {
 
 	list = list.Children()
 	if len(list.Items) == 0 {
@@ -255,14 +219,17 @@ func parseInputs(result *ProcessInfo, list *ast.ObjectList) error {
 	if len(item.Keys) == 0 {
 		return fmt.Errorf("you may only specify a type for inputs")
 	}
-	key := item.Keys[0].Token.Value().(string)
+	key, ok := item.Keys[0].Token.Value().(string)
+	if !ok {
+		return fmt.Errorf("input name must be a string, got %q", item.Keys[0].Token.Value())
+	}
 
 	var m map[string]interface{}
 	if err := hcl.DecodeObject(&m, item.Val); err != nil {
 		return err
 	}
 
-	var input InputInfo
+	var input inputInfo
 	input.Type = strings.ToLower(key)
 	input.Config = m
 
@@ -271,23 +238,26 @@ func parseInputs(result *ProcessInfo, list *ast.ObjectList) error {
 	return nil
 }
 
-func parseTransforms(result *ProcessInfo, list *ast.ObjectList) error {
+func parseTransforms(result *processInfo, list *ast.ObjectList) error {
 
 	// Go through each object and turn it into an actual result.
-	collection := make([]*TransformInfo, 0, len(list.Items))
+	collection := make([]*transformInfo, 0, len(list.Items))
 	for _, item := range list.Items {
 
 		if len(item.Keys) == 0 {
 			return fmt.Errorf("you may only specify a type for transforms")
 		}
-		key := item.Keys[0].Token.Value().(string)
+		key, ok := item.Keys[0].Token.Value().(string)
+		if !ok {
+			return fmt.Errorf("transform name must be a string, got %q", item.Keys[0].Token.Value())
+		}
 
 		var m map[string]interface{}
 		if err := hcl.DecodeObject(&m, item.Val); err != nil {
 			return err
 		}
 
-		var c TransformInfo
+		var c transformInfo
 		c.Type = strings.ToLower(key)
 		c.Config = m
 
@@ -299,7 +269,7 @@ func parseTransforms(result *ProcessInfo, list *ast.ObjectList) error {
 	return nil
 }
 
-func parseOutputs(result *ProcessInfo, list *ast.ObjectList) error {
+func parseOutputs(result *processInfo, list *ast.ObjectList) error {
 
 	list = list.Children()
 	if len(list.Items) != 1 {
@@ -311,14 +281,17 @@ func parseOutputs(result *ProcessInfo, list *ast.ObjectList) error {
 	if len(item.Keys) == 0 {
 		return fmt.Errorf("you may only specify a type for outputs")
 	}
-	key := item.Keys[0].Token.Value().(string)
+	key, ok := item.Keys[0].Token.Value().(string)
+	if !ok {
+		return fmt.Errorf("output name must be a string, got %q", item.Keys[0].Token.Value())
+	}
 
 	var m map[string]interface{}
 	if err := hcl.DecodeObject(&m, item.Val); err != nil {
 		return err
 	}
 
-	var c OutputInfo
+	var c outputInfo
 	c.Type = strings.ToLower(key)
 	c.Config = m
 
@@ -332,7 +305,7 @@ func LoadConfig(path string) (*Config, error) {
 
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("opening configuation file (%s): %s", path, err)
+		return nil, fmt.Errorf("opening configuration file (%s): %s", path, err)
 	}
 
 	config, err := Parse(file)

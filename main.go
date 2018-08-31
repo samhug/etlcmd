@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -8,50 +9,85 @@ import (
 	"strings"
 
 	"github.com/codegangsta/cli"
-	"github.com/dailyburn/ratchet"
-	"github.com/dailyburn/ratchet/logger"
-	"github.com/dailyburn/ratchet/processors"
-	"github.com/dailyburn/ratchet/util"
+	"github.com/rhansen2/ratchet"
+	"github.com/rhansen2/ratchet/logger"
+	"github.com/rhansen2/ratchet/processors"
+	"github.com/rhansen2/ratchet/util"
+	"golang.org/x/crypto/ssh"
 
 	procs "github.com/samuelhug/ratchet_processors"
+	"github.com/samuelhug/udt"
 )
 
-const CMDNAME = "etlcmd"
-const VERSION = "0.2.2"
-const AUTHOR = "Sam Hug"
+const (
+	infoName    = "etlcmd"
+	infoVersion = "0.3.0"
+	infoAuthor  = "Sam Hug"
+)
 
 func main() {
 
 	var configPath string
+	var logPath string
+	var quietFlag bool
 
 	app := cli.NewApp()
-	app.Name = CMDNAME
+	app.Name = infoName
 	app.Usage = "A utility to assist with the automation of ETL tasks."
-	app.Author = AUTHOR
+	app.Author = infoAuthor
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "config, c",
 			Usage:       "Path to configuration file",
 			Destination: &configPath,
 		},
+		cli.StringFlag{
+			Name:        "logfile, l",
+			Usage:       "Path to log file",
+			Destination: &logPath,
+		},
+		cli.BoolFlag{
+			Name:        "quiet, q",
+			Usage:       "Suppress terminal output",
+			Destination: &quietFlag,
+		},
 	}
 	app.Action = func(c *cli.Context) error {
 
-		fmt.Fprintf(os.Stderr, "%s v%s by %s\n\n", CMDNAME, VERSION, AUTHOR)
+		if !quietFlag {
+			fmt.Fprintf(os.Stderr, "%s v%s by %s\n\n", infoName, infoVersion, infoAuthor)
+		}
+
+		if logPath != "" {
+			f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+			if err != nil {
+				log.Fatalf("error opening logfile: %v", err)
+			}
+			defer f.Close()
+
+			// If the quiet flag was specified, log to file only. Otherwise log to file and stderr
+			if quietFlag {
+				log.SetOutput(f)
+			} else {
+				log.SetOutput(io.MultiWriter(os.Stderr, f))
+			}
+		}
 
 		if configPath == "" {
-			log.Fatalf("You must specifiy a configuration file.\n")
+			log.Fatalf("You must specify a configuration file.\n")
 		}
 
 		config, err := LoadConfig(configPath)
 		if err != nil {
-			log.Fatalf("Unable to load configuration: %s\n", err)
+			log.Fatalf("Failed to load configuration: %s\n", err)
 		}
 
 		return runApp(config)
 	}
 
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // Get handle to input file defined by path attribute, if defined, or stdin
@@ -61,7 +97,7 @@ func inputFile(config configMap) (f *os.File) {
 		path := config["path"].(string)
 		f, err = os.Open(path)
 		if err != nil {
-			log.Fatalf("Unable to open input file (%s): %s", path, err)
+			log.Fatalf("Failed to open input file (%s): %s", path, err)
 		}
 	} else {
 		f = os.Stdin
@@ -76,7 +112,7 @@ func outputFile(config configMap) (f *os.File) {
 		path := config["path"].(string)
 		f, err = os.Create(path)
 		if err != nil {
-			log.Fatalf("Unable to create output file (%s): %s", path, err)
+			log.Fatalf("Failed to create output file (%s): %s", path, err)
 		}
 	} else {
 		f = os.Stdout
@@ -112,7 +148,7 @@ func runApp(config *Config) error {
 
 			input, err = procs.NewCSVReader(f)
 			if err != nil {
-				log.Fatalf("Error initializing input: %s\n", err)
+				log.Fatalf("Failed to initialize input: %s\n", err)
 			}
 		case "json":
 			f := inputFile(inputConfig)
@@ -121,34 +157,81 @@ func runApp(config *Config) error {
 			input = procs.NewJSONReader(f)
 
 		case "unidata":
-			c := &procs.UdtConfig{}
+			udtEnv := &procs.UdtEnvConfig{}
+			udtEnv.UdtBin = config.Unidata.UdtBin
+			udtEnv.UdtHome = config.Unidata.UdtHome
+			udtEnv.UdtAcct = config.Unidata.UdtAcct
 
-			c.Address = config.Unidata.Host
-			c.Username = config.Unidata.Username
-			c.Password = config.Unidata.Password
-			c.UdtBin = config.Unidata.UdtBin
-			c.UdtHome = config.Unidata.UdtHome
-
-			if c.UdtBin == "" {
+			if udtEnv.UdtBin == "" {
 				log.Fatalf("The 'udtbin' attribute for input type 'unidata' must not be empty")
 			}
-			if c.UdtHome == "" {
+			if udtEnv.UdtHome == "" {
 				log.Fatalf("The 'udthome' attribute for input type 'unidata' must not be empty")
 			}
-
-			queryField, ok := inputConfig["query"]
-			if !ok {
-				log.Fatalf("You must specifiy a 'query' attribute for input type 'unidata'")
+			if udtEnv.UdtAcct == "" {
+				log.Fatalf("The 'udtacct' attribute for input type 'unidata' must not be empty")
 			}
 
-			query, ok := queryField.(string)
+			fileField, ok := inputConfig["file"]
 			if !ok {
-				log.Fatalf("The 'query' attribute for input type 'unidata' must be a string")
+				log.Fatalf("You must specify a 'file' attribute for input type 'unidata'")
+			}
+			file, ok := fileField.(string)
+			if !ok {
+				log.Fatalf("The 'file' attribute for input type 'unidata' must be a string")
 			}
 
-			input, err = procs.NewUdtReader(c, query)
+			// If there is a select statement provided, use it. Otherwise, default to select the whole file.
+			selectStmt := fmt.Sprintf("SELECT %s", file)
+			selectStmtField, ok := inputConfig["select"]
+			if ok {
+				selectStmt, ok = selectStmtField.(string)
+				if !ok {
+					log.Fatalf("The 'select' attribute for input type 'unidata' must be a string")
+				}
+			}
+
+			fieldsField, ok := inputConfig["fields"]
+			if !ok {
+				log.Fatalf("You must specify a 'fields' attribute for input type 'unidata'")
+			}
+			fieldsInterface, ok := fieldsField.([]interface{})
+			if !ok {
+				log.Fatalf("The 'fields' attribute for input type 'unidata' must be a list of strings")
+			}
+			fields := make([]string, len(fieldsInterface))
+			for i, v := range fieldsInterface {
+				fields[i], ok = v.(string)
+				if !ok {
+					log.Fatalf("The 'fields' attribute for input type 'unidata' must be a list of strings")
+				}
+			}
+
+			queryConfig := &procs.UdtQueryConfig{
+				SelectStmt: selectStmt,
+				File:       file,
+				Fields:     fields,
+			}
+
+			sshConfig := &ssh.ClientConfig{
+				User: config.Unidata.Username,
+				Auth: []ssh.AuthMethod{
+					ssh.Password(config.Unidata.Password),
+				},
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			}
+
+			sshClient, err := ssh.Dial("tcp", config.Unidata.Host, sshConfig)
 			if err != nil {
-				log.Fatalf("Error initializing input: %s\n", err)
+				log.Fatalf("Failed to connect to (%s) as user (%s): %s", config.Unidata.Host, config.Unidata.Username, err)
+			}
+			defer sshClient.Close()
+
+			udtClient := udt.NewClient(sshClient, udtEnv)
+
+			input, err = procs.NewUdtReader(udtClient, queryConfig)
+			if err != nil {
+				log.Fatalf("Failed to initialize input: %s\n", err)
 			}
 		}
 		processorChain = append(processorChain, input)
@@ -168,7 +251,7 @@ func runApp(config *Config) error {
 				script := transformConfig["script"].(string)
 				transform, err = procs.NewJsTransform(script)
 				if err != nil {
-					log.Fatalf("Error initializing JS transform: %s", err)
+					log.Fatalf("Failed to initialize JS transform: %s", err)
 				}
 			}
 			processorChain = append(processorChain, transform)
@@ -208,21 +291,11 @@ func runApp(config *Config) error {
 			f := outputFile(outputConfig)
 			defer f.Close()
 			output = procs.NewJSONWriter(f)
-		case "mongodb":
-			mgoConfig := &procs.MgoConfig{
-				Server:     config.MongoDB.Server,
-				Db:         config.MongoDB.Database,
-				Collection: outputConfig["collection"].(string),
-			}
-			output, err = procs.NewMgoWriter(mgoConfig)
-			if err != nil {
-				log.Fatalf("Error initializing output: %s\n", err)
-			}
 		}
 		processorChain = append(processorChain, output)
 
 		log.Printf("  Initializing data pipeline")
-		pipeline := ratchet.NewPipeline(processorChain...)
+		pipeline := ratchet.NewPipeline(context.TODO(), func() {}, processorChain...)
 
 		log.Printf("  Processesing...")
 
@@ -232,6 +305,7 @@ func runApp(config *Config) error {
 			os.Exit(1)
 		}
 
+		//log.Println(pipeline.Stats())
 		log.Printf(" Done...")
 
 	}
