@@ -291,6 +291,10 @@ func runApp(config *Config) error {
 			f := outputFile(outputConfig)
 			defer f.Close()
 			output = procs.NewJSONWriter(f)
+		case "jsonl":
+			f := outputFile(outputConfig)
+			defer f.Close()
+			output = procs.NewJSONLWriter(f)
 		}
 		processorChain = append(processorChain, output)
 
@@ -301,8 +305,7 @@ func runApp(config *Config) error {
 
 		err = <-pipeline.Run()
 		if err != nil {
-			fmt.Println("An error occurred in the data pipeline: ", err.Error())
-			os.Exit(1)
+			log.Fatalf("An error occurred in the data pipeline: %s", err.Error())
 		}
 
 		//log.Println(pipeline.Stats())
