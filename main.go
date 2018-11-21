@@ -21,7 +21,7 @@ import (
 
 const (
 	infoName    = "etlcmd"
-	infoVersion = "0.3.0"
+	infoVersion = "0.3.1"
 	infoAuthor  = "Sam Hug"
 )
 
@@ -35,6 +35,7 @@ func main() {
 	app.Name = infoName
 	app.Usage = "A utility to assist with the automation of ETL tasks."
 	app.Author = infoAuthor
+	app.Author = infoVersion
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "config, c",
