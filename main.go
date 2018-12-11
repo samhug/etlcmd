@@ -21,7 +21,7 @@ import (
 
 const (
 	infoName    = "etlcmd"
-	infoVersion = "0.3.2"
+	infoVersion = "0.3.3"
 	infoAuthor  = "Sam Hug"
 )
 
@@ -208,10 +208,20 @@ func runApp(config *Config) error {
 				}
 			}
 
+			batchSize := 10000
+			batchSizeField, ok := inputConfig["batch_size"]
+			if ok {
+				batchSize, ok = batchSizeField.(int)
+				if !ok {
+					log.Fatalf("The 'batch_size' attribute for input type 'unidata' must be an int")
+				}
+			}
+
 			queryConfig := &procs.UdtQueryConfig{
 				SelectStmt: selectStmt,
 				File:       file,
 				Fields:     fields,
+				BatchSize:  batchSize,
 			}
 
 			sshConfig := &ssh.ClientConfig{
