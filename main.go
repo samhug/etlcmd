@@ -15,8 +15,8 @@ import (
 	"github.com/rhansen2/ratchet/util"
 	"golang.org/x/crypto/ssh"
 
-	procs "github.com/samuelhug/ratchet_processors"
-	"github.com/samuelhug/udt"
+	procs "github.com/samhug/ratchet_processors"
+	"github.com/samhug/udt"
 )
 
 const (

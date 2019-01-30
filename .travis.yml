@@ -1,5 +1,5 @@
 language: go
-go: 1.11.x
+go: "1.11.x"
 install: 
 before_deploy:
 - GOOS=linux   GOARCH=amd64 go build -o etlcmd_linux_amd64
@@ -22,4 +22,4 @@ deploy:
   - etlcmd_windows_386.exe
   on:
     tags: true
-    repo: samuelhug/etlcmd
+    repo: samhug/etlcmd
