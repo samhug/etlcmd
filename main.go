@@ -156,6 +156,11 @@ func runApp(config *Config) error {
 			defer f.Close()
 
 			input = procs.NewJSONReader(f)
+		case "jsonl":
+			f := inputFile(inputConfig)
+			defer f.Close()
+
+			input = procs.NewJSONLReader(f)
 
 		case "unidata":
 			udtEnv := &procs.UdtEnvConfig{}
