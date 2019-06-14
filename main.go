@@ -187,14 +187,31 @@ func runApp(config *Config) error {
 				log.Fatalf("The 'file' attribute for input type 'unidata' must be a string")
 			}
 
-			// If there is a select statement provided, use it. Otherwise, default to select the whole file.
-			selectStmt := fmt.Sprintf("SELECT %s", file)
+			// If there is a select statement provided, use it. Otherwise, default to selecting the whole file.
+			var selectScript []string
 			selectStmtField, ok := inputConfig["select"]
 			if ok {
-				selectStmt, ok = selectStmtField.(string)
-				if !ok {
-					log.Fatalf("The 'select' attribute for input type 'unidata' must be a string")
+				// Check if we were given a list
+				selectInterface, ok := selectStmtField.([]interface{})
+				if ok {
+					selectScript = make([]string, len(selectInterface))
+					for i, v := range selectInterface {
+						selectScript[i], ok = v.(string)
+						if !ok {
+							log.Fatalf("The 'select' attribute for input type 'unidata' must be a string or an array of strings")
+						}
+					}
+
+				} else {
+					// Check if we were given a single string
+					selectStmt, ok := selectStmtField.(string)
+					if !ok {
+						log.Fatalf("The 'select' attribute for input type 'unidata' must be a string or an array of strings")
+					}
+					selectScript = []string{selectStmt}
 				}
+			} else {
+				selectScript = []string{fmt.Sprintf("SELECT %s", file)}
 			}
 
 			fieldsField, ok := inputConfig["fields"]
@@ -223,10 +240,10 @@ func runApp(config *Config) error {
 			}
 
 			queryConfig := &procs.UdtQueryConfig{
-				SelectStmt: selectStmt,
-				File:       file,
-				Fields:     fields,
-				BatchSize:  batchSize,
+				Select:    selectScript,
+				File:      file,
+				Fields:    fields,
+				BatchSize: batchSize,
 			}
 
 			sshConfig := &ssh.ClientConfig{
