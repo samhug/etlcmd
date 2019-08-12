@@ -8,11 +8,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/codegangsta/cli"
 	"github.com/rhansen2/ratchet"
 	"github.com/rhansen2/ratchet/logger"
 	"github.com/rhansen2/ratchet/processors"
 	"github.com/rhansen2/ratchet/util"
+	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh"
 
 	procs "github.com/samhug/ratchet_processors"
