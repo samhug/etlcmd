@@ -1,17 +1,16 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
 
-	"github.com/rhansen2/ratchet"
-	"github.com/rhansen2/ratchet/logger"
-	"github.com/rhansen2/ratchet/processors"
-	"github.com/rhansen2/ratchet/util"
+	"github.com/licaonfee/ratchet"
+	"github.com/licaonfee/ratchet/logger"
+	"github.com/licaonfee/ratchet/processors"
+	"github.com/licaonfee/ratchet/util"
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh"
 
@@ -130,11 +129,11 @@ func runApp(config *Config) error {
 
 		log.Printf("%s ETL Process", processInfo.Name)
 
-		var processorChain []ratchet.DataProcessor
+		var processorChain []processors.DataProcessor
 		var err error
 
 		// Initialize Input
-		var input ratchet.DataProcessor
+		var input processors.DataProcessor
 		inputType := strings.ToLower(processInfo.Input.Type)
 		inputConfig := processInfo.Input.Config
 
@@ -271,7 +270,7 @@ func runApp(config *Config) error {
 
 		// Initialize Transformations
 		for _, transformInfo := range processInfo.Transforms {
-			var transform ratchet.DataProcessor
+			var transform processors.DataProcessor
 			transformType := strings.ToLower(transformInfo.Type)
 			transformConfig := transformInfo.Config
 
@@ -291,7 +290,7 @@ func runApp(config *Config) error {
 		}
 
 		// Initialize Output
-		var output ratchet.DataProcessor
+		var output processors.DataProcessor
 		outputType := strings.ToLower(processInfo.Output.Type)
 		outputConfig := processInfo.Output.Config
 
@@ -332,7 +331,7 @@ func runApp(config *Config) error {
 		processorChain = append(processorChain, output)
 
 		log.Printf("  Initializing data pipeline")
-		pipeline := ratchet.NewPipeline(context.TODO(), func() {}, processorChain...)
+		pipeline := ratchet.NewPipeline(processorChain...)
 
 		log.Printf("  Processesing...")
 
