@@ -99,8 +99,10 @@ func inputFile(config configMap) (f *os.File) {
 		if err != nil {
 			log.Fatalf("Failed to open input file (%s): %s", path, err)
 		}
+		log.Printf("    Reading from '%s'\n", path)
 	} else {
 		f = os.Stdin
+		log.Println("    Reading from stdin")
 	}
 	return
 }
@@ -114,8 +116,10 @@ func outputFile(config configMap) (f *os.File) {
 		if err != nil {
 			log.Fatalf("Failed to create output file (%s): %s", path, err)
 		}
+		log.Printf("    Writing to '%s'\n", path)
 	} else {
 		f = os.Stdout
+		log.Println("    Writing to stdout")
 	}
 	return
 }
