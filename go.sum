@@ -110,10 +110,10 @@ github.com/prometheus/procfs v0.0.3 h1:CTwfnzjQ+8dS6MhHHu4YswVAD99sL2wjPqP+VkURm
 github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d h1:1VUlQbCfkoSGv7qP7Y+ro3ap1P1pPZxgdGVqiTVy5C4=
 github.com/robertkrimen/otto v0.0.0-20180617131154-15f95af6e78d/go.mod h1:xvqspoSXJTIpemEonrMDFq6XzwHYYgToXWj5eRX1OtY=
-github.com/samhug/ratchet_processors v0.0.1 h1:WIUvHnMI9wSXC/Yw92AywAfa6AQYs03DdlHHZ59BtBs=
-github.com/samhug/ratchet_processors v0.0.1/go.mod h1:YJB+66bjnWwv+7fz+R1e9EqsNW88XlILlRz2rGc/L84=
-github.com/samhug/udt v0.0.2 h1:FVU/jkUe8kI2ujDd6QDPNeOD45UH5bmDYqmFI9GD5gU=
-github.com/samhug/udt v0.0.2/go.mod h1:z9m4Yb+sE2txiCIjXfAHeXsG0wA5JErtXLmVtg4+zKc=
+github.com/samhug/ratchet_processors v0.0.3 h1:cmHXjccr7jxGzgIhpde71bW81IdfU9UJHSl0XuWvGZE=
+github.com/samhug/ratchet_processors v0.0.3/go.mod h1:9tXS38RE3HmIPIBSQd2scMjL/918uXJ3UfddqmdWnJE=
+github.com/samhug/udt v0.0.4 h1:RN3XxP3rc7TtI2h5R9uX2ceGc9jJUjlpnrX9kmyeYjU=
+github.com/samhug/udt v0.0.4/go.mod h1:z9m4Yb+sE2txiCIjXfAHeXsG0wA5JErtXLmVtg4+zKc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
