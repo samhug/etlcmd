@@ -20,7 +20,7 @@ import (
 
 const (
 	infoName    = "etlcmd"
-	infoVersion = "0.3.6"
+	infoVersion = "0.3.7"
 	infoAuthor  = "Sam Hug"
 )
 
